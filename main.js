@@ -142,9 +142,11 @@ ipcMain.on('dirty', (e, dirty) => {
   updateTitle(win);
 });
 
+let template;
+
 function buildMenu() {
   const send = (action) => (_item, win) => win?.webContents.send('menu', action);
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
+  template = [
     { role: 'appMenu' },
     {
       label: '파일',
@@ -162,6 +164,12 @@ function buildMenu() {
     },
     { role: 'editMenu' },
     {
+      label: '서식',
+      submenu: FORMAT_MENU.map((item) => (item
+        ? { label: item[1], accelerator: item[2], click: send(`format:${item[0]}`) }
+        : { type: 'separator' })),
+    },
+    {
       label: '보기',
       submenu: [
         { label: '편집 모드 전환', accelerator: 'CmdOrCtrl+E', click: send('toggle-edit') },
@@ -171,7 +179,47 @@ function buildMenu() {
       ],
     },
     { role: 'windowMenu' },
-  ]));
+    {
+      role: 'help',
+      label: '도움말',
+      submenu: [{ label: '키보드 단축키', click: (_item, win) => showShortcuts(win) }],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+const FORMAT_MENU = [
+  ['h1', '제목 1', 'CmdOrCtrl+1'],
+  ['h2', '제목 2', 'CmdOrCtrl+2'],
+  ['h3', '제목 3', 'CmdOrCtrl+3'],
+  ['h4', '제목 4', 'CmdOrCtrl+4'],
+  null,
+  ['bold', '굵게', 'CmdOrCtrl+B'],
+  ['italic', '기울임', 'CmdOrCtrl+I'],
+  ['strike', '취소선', 'CmdOrCtrl+Shift+X'],
+  ['inlineCode', '인라인 코드', 'CmdOrCtrl+Shift+C'],
+  null,
+  ['quote', '인용', 'CmdOrCtrl+Alt+Q'],
+  ['link', '링크', 'CmdOrCtrl+K'],
+  ['image', '이미지…', 'CmdOrCtrl+Shift+I'],
+  ['codeBlock', '코드블록…', 'CmdOrCtrl+Alt+C'],
+];
+
+// macOS lists modifiers as ⌥⇧⌘ regardless of how the accelerator is written.
+const MODIFIERS = [['Alt', '⌥'], ['Shift', '⇧'], ['CmdOrCtrl', '⌘']];
+const keySymbols = (accelerator) => {
+  const parts = accelerator.split('+');
+  const key = parts.pop();
+  return MODIFIERS.filter(([name]) => parts.includes(name)).map(([, symbol]) => symbol).join('') + key;
+};
+
+// Built from the menu template, so the list can't drift from the real shortcuts.
+function showShortcuts(win) {
+  const sections = template
+    .filter((menu) => menu.submenu?.some((item) => item.accelerator))
+    .map((menu) => [`[${menu.label}]`, ...menu.submenu.filter((item) => item.accelerator)
+      .map((item) => `${item.label}   ${keySymbols(item.accelerator)}`)].join('\n'));
+  dialog.showMessageBox(win, { message: '키보드 단축키', detail: `${sections.join('\n\n')}\n\n서식 단축키는 편집 모드에서 동작합니다.` });
 }
 
 // macOS delivers Finder double-clicks via open-file, possibly before the app is ready.

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { EditorState, EditorSelection } from '@codemirror/state';
 import { render } from './render.mjs';
-import { commands } from './editor.mjs';
+import { commands, codeBlock } from './editor.mjs';
 
 assert.match(await render('$x^2$'), /class="katex"/);
 
@@ -41,7 +41,13 @@ assert.equal(s.doc.toString(), 'hello');
 assert.equal(run(state('# 제목', 0), 'h2').doc.toString(), '## 제목');
 assert.equal(run(state('## 제목', 0), 'h2').doc.toString(), '제목');
 assert.equal(run(state('a\nb', 0, 3), 'quote').doc.toString(), '> a\n> b');
-assert.equal(run(state('a\nb', 0, 3), 'code').doc.toString(), '```\na\nb\n```');
-assert.equal(run(state('a', 0, 1), 'code').doc.toString(), '`a`');
+assert.equal(run(state('a', 0, 1), 'inlineCode').doc.toString(), '`a`');
+
+const block = (s, lang) => s.update(codeBlock(s, lang)).state;
+s = block(state('', 0), 'java');
+assert.equal(s.doc.toString(), '```java\n\n```');
+assert.equal(s.selection.main.head, 8);
+assert.equal(block(state('a\nb', 0, 3), '').doc.toString(), '```\na\nb\n```');
+assert.equal(block(state('ab', 1), 'py').doc.toString(), 'a\n```py\n\n```\nb');
 
 console.log('all tests passed');

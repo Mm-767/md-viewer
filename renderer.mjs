@@ -133,12 +133,86 @@ function applyTheme() {
   return update();
 }
 
+function runCommand(cmd) {
+  if (!isEditing()) return;
+  if (cmd === 'image') imageInput.click();
+  else if (cmd === 'codeBlock') openLangPicker();
+  else editor.run(cmd);
+}
+
 const toolbar = document.getElementById('toolbar');
 toolbar.addEventListener('mousedown', (e) => e.preventDefault()); // keep the editor's selection
 toolbar.addEventListener('click', (e) => {
   const cmd = e.target.closest('button[data-cmd]')?.dataset.cmd;
-  if (cmd === 'image') imageInput.click();
-  else if (cmd) editor.run(cmd);
+  if (cmd) runCommand(cmd);
+});
+
+// Shiki language ids; anything typed that isn't listed can still be used as-is.
+const LANGS = [
+  ['', '없음 (일반 텍스트)'], ['java', 'Java'], ['python', 'Python'], ['javascript', 'JavaScript'],
+  ['typescript', 'TypeScript'], ['sql', 'SQL'], ['bash', 'Bash'], ['json', 'JSON'], ['html', 'HTML'],
+  ['css', 'CSS'], ['c', 'C'], ['cpp', 'C++'], ['csharp', 'C#'], ['kotlin', 'Kotlin'], ['swift', 'Swift'],
+  ['go', 'Go'], ['rust', 'Rust'], ['dart', 'Dart'], ['yaml', 'YAML'], ['markdown', 'Markdown'],
+  ['mermaid', 'Mermaid (다이어그램)'], ['diff', 'Diff'],
+];
+const picker = document.getElementById('lang-picker');
+const langSearch = document.getElementById('lang-search');
+const langList = document.getElementById('lang-list');
+let langItems = [];
+let langActive = 0;
+
+function openLangPicker() {
+  const btn = toolbar.querySelector('[data-cmd="codeBlock"]').getBoundingClientRect();
+  picker.style.left = `${btn.left}px`;
+  picker.style.top = `${btn.bottom + 4}px`;
+  picker.hidden = false;
+  langSearch.value = '';
+  filterLangs();
+  langSearch.focus();
+}
+
+function closeLangPicker() {
+  picker.hidden = true;
+  editor.view.focus();
+}
+
+function filterLangs() {
+  const q = langSearch.value.trim().toLowerCase();
+  langItems = LANGS.filter(([id, name]) => !q || id.includes(q) || name.toLowerCase().includes(q));
+  if (q && !LANGS.some(([id]) => id === q)) langItems.push([q, `"${q}" 그대로 쓰기`]);
+  langActive = 0;
+  drawLangs();
+}
+
+function drawLangs() {
+  langList.replaceChildren(...langItems.map(([id, name], i) => {
+    const li = document.createElement('li');
+    li.textContent = name;
+    li.classList.toggle('active', i === langActive);
+    li.addEventListener('mousedown', (e) => { e.preventDefault(); chooseLang(id); });
+    return li;
+  }));
+  langList.children[langActive]?.scrollIntoView({ block: 'nearest' });
+}
+
+function chooseLang(id) {
+  closeLangPicker();
+  editor.insertCodeBlock(id);
+}
+
+langSearch.addEventListener('input', filterLangs);
+langSearch.addEventListener('keydown', (e) => {
+  if (e.isComposing) return;
+  if (e.key === 'ArrowDown') langActive = Math.min(langActive + 1, langItems.length - 1);
+  else if (e.key === 'ArrowUp') langActive = Math.max(langActive - 1, 0);
+  else if (e.key === 'Enter') { e.preventDefault(); if (langItems[langActive]) chooseLang(langItems[langActive][0]); return; }
+  else if (e.key === 'Escape') { closeLangPicker(); return; }
+  else return;
+  e.preventDefault();
+  drawLangs();
+});
+document.addEventListener('mousedown', (e) => {
+  if (!picker.hidden && !picker.contains(e.target)) picker.hidden = true;
 });
 imageInput.addEventListener('change', () => {
   if (imageInput.files[0]) insertImage(imageInput.files[0]);
@@ -165,6 +239,7 @@ window.api.onSaved(({ dir: d, version: v }) => {
 });
 window.api.onMenu((action) => {
   if (action === 'toggle-edit') setEditing(!isEditing());
+  else if (action.startsWith('format:')) runCommand(action.slice('format:'.length));
 });
 
 window.__getContent = () => ({ text: editor.view.state.doc.toString(), version });

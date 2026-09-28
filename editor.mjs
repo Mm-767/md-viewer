@@ -1,6 +1,5 @@
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState, EditorSelection, Compartment, Prec } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
+import { EditorState, EditorSelection, Compartment } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -40,11 +39,17 @@ export function linePrefix(state, prefix) {
   return { changes };
 }
 
-export function codeBlock(state) {
+// Fences must sit on their own lines, so break the line around the cursor/selection when needed.
+export function codeBlock(state, lang = '') {
   const r = state.selection.main;
-  return state.doc.lineAt(r.from).number === state.doc.lineAt(r.to).number
-    ? wrap(state, '`')
-    : wrap(state, '```\n', '\n```');
+  const text = state.sliceDoc(r.from, r.to);
+  const before = r.from === state.doc.lineAt(r.from).from ? '' : '\n';
+  const after = r.to === state.doc.lineAt(r.to).to ? '' : '\n';
+  const open = `${before}\`\`\`${lang}\n`;
+  return {
+    changes: { from: r.from, to: r.to, insert: `${open}${text}\n\`\`\`${after}` },
+    selection: EditorSelection.range(r.from + open.length, r.from + open.length + text.length),
+  };
 }
 
 // `*` rather than `_`: CommonMark ignores `_` emphasis inside words, which includes Hangul.
@@ -58,13 +63,12 @@ export const commands = {
   strike: (s) => wrap(s, '~~'),
   quote: (s) => linePrefix(s, '> '),
   link: (s) => wrap(s, '[', '](https://)'),
-  code: codeBlock,
+  inlineCode: (s) => wrap(s, '`'),
 };
 
 export function createEditor(parent, { onChange, onImageFile }) {
   const theme = new Compartment();
   let dark = false;
-  const run = (cmd) => (view) => { view.dispatch(cmd(view.state)); return true; };
   const pickImage = (files, e) => {
     const file = [...(files ?? [])].find((f) => f.type.startsWith('image/'));
     if (!file) return false;
@@ -77,7 +81,6 @@ export function createEditor(parent, { onChange, onImageFile }) {
     markdown({ codeLanguages: languages }),
     EditorView.lineWrapping,
     theme.of(dark ? oneDark : []),
-    Prec.high(keymap.of([{ key: 'Mod-b', run: run(commands.bold) }, { key: 'Mod-i', run: run(commands.italic) }])),
     EditorView.updateListener.of((u) => { if (u.docChanged) onChange(); }),
     EditorView.domEventHandlers({
       paste: (e) => pickImage(e.clipboardData?.files, e),
@@ -93,5 +96,6 @@ export function createEditor(parent, { onChange, onImageFile }) {
       view.dispatch({ effects: theme.reconfigure(dark ? oneDark : []) });
     },
     run: (name) => { view.dispatch(commands[name](view.state)); view.focus(); },
+    insertCodeBlock: (lang) => { view.dispatch(codeBlock(view.state, lang)); view.focus(); },
   };
 }
