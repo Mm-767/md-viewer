@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https: http:; font-src 'self' data:">
+<title>MD Viewer</title>
+<link rel="stylesheet" href="dist/github-markdown.css">
+<link rel="stylesheet" href="dist/katex/katex.min.css">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --pane: #f6f8fa; --line: #d0d7de; --fg: #1f2328; --muted: #59636e; --accent: #0969da;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --pane: #151b23; --line: #30363d; --fg: #e6edf3; --muted: #9198a1; --accent: #4493f8; }
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+  #app { display: flex; height: 100vh; }
+
+  #editor-pane { display: none; flex: 1 1 50%; min-width: 0; flex-direction: column; background: var(--pane); border-right: 1px solid var(--line); }
+  body.editing #editor-pane { display: flex; }
+  #toolbar { display: flex; align-items: center; gap: 2px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  #toolbar button { width: 34px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: none; color: var(--muted); font: 700 15px/1 Georgia, serif; cursor: pointer; }
+  #toolbar button:hover { background: var(--line); color: var(--fg); }
+  #toolbar sub { font-size: 10px; }
+  #toolbar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .sep { width: 1px; height: 18px; margin: 0 6px; background: var(--line); }
+  #editor { flex: 1; min-height: 0; }
+  #editor .cm-editor { height: 100%; font-size: 15px; }
+  #editor .cm-editor.cm-focused { outline: none; }
+  #editor .cm-scroller { font-family: ui-monospace, "SF Mono", Menlo, monospace; line-height: 1.6; }
+  #editor .cm-content { padding: 16px 8px; }
+
+  #preview { flex: 1 1 50%; min-width: 0; overflow: auto; position: relative; }
+  .markdown-body { max-width: 860px; margin: 0 auto; padding: 56px 40px 40vh; box-sizing: border-box; }
+  .markdown-body .mermaid { margin-bottom: 16px; text-align: center; }
+
+  #mode-btn { position: fixed; top: 12px; right: 20px; z-index: 10; padding: 6px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--fg); font-size: 13px; font-weight: 600; cursor: pointer; }
+  #mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media print {
+    #editor-pane, #mode-btn { display: none !important; }
+    html, body, #app, #preview { display: block; height: auto; overflow: visible; }
+    .markdown-body { max-width: none; padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="editor-pane">
+    <div id="toolbar">
+      <button data-cmd="h1" title="제목 1">H<sub>1</sub></button>
+      <button data-cmd="h2" title="제목 2">H<sub>2</sub></button>
+      <button data-cmd="h3" title="제목 3">H<sub>3</sub></button>
+      <button data-cmd="h4" title="제목 4">H<sub>4</sub></button>
+      <span class="sep"></span>
+      <button data-cmd="bold" title="굵게 (⌘B)">B</button>
+      <button data-cmd="italic" title="기울임 (⌘I)"><i>I</i></button>
+      <button data-cmd="strike" title="취소선"><s>S</s></button>
+      <span class="sep"></span>
+      <button data-cmd="quote" title="인용"><svg viewBox="0 0 24 24"><path d="M7 7h4v4c0 3-2 5-4 6M14 7h4v4c0 3-2 5-4 6"/></svg></button>
+      <button data-cmd="link" title="링크"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg></button>
+      <button data-cmd="image" title="이미지"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></button>
+      <button data-cmd="code" title="코드"><svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></svg></button>
+    </div>
+    <div id="editor"></div>
+  </section>
+  <main id="preview"><article class="markdown-body"></article></main>
+</div>
+<button id="mode-btn">편집</button>
+<input id="image-input" type="file" accept="image/*" hidden>
+<script src="dist/renderer.js"></script>
+</body>
+</html>
