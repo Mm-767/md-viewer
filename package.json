@@ -9,7 +9,8 @@
     "build": "esbuild renderer.mjs --bundle --format=iife --minify --outfile=dist/renderer.js && mkdir -p dist/katex && cp -R node_modules/katex/dist/katex.min.css node_modules/katex/dist/fonts dist/katex/ && cp node_modules/github-markdown-css/github-markdown.css dist/",
     "start": "npm run build && electron .",
     "test": "node test.mjs",
-    "dist": "npm run build && electron-builder --mac --dir"
+    "dist": "npm run build && electron-builder --mac --dir",
+    "release": "npm run build && electron-builder --mac dmg"
   },
   "devDependencies": {
     "@codemirror/lang-markdown": "^6.5.2",
@@ -61,6 +62,7 @@
     ],
     "directories": {
       "output": "release"
-    }
+    },
+    "artifactName": "MD-Viewer-${version}-${arch}.${ext}"
   }
 }
