@@ -13,6 +13,18 @@
 - 다크모드는 맥 설정을 따른다
 - .md 파일로 저장(⌘S)하고 PDF로 내보내기(⌘P)
 
+## 단축키
+
+| 기능 | 단축키 | 기능 | 단축키 |
+|---|---|---|---|
+| 편집 모드 전환 | ⌘E | 인용 | ⌥⌘Q |
+| 제목 1~4 | ⌘1~⌘4 | 링크 | ⌘K |
+| 굵게 / 기울임 | ⌘B / ⌘I | 이미지 | ⇧⌘I |
+| 취소선 | ⇧⌘X | 코드블록 | ⌥⌘C |
+| 인라인 코드 | ⇧⌘C | PDF로 내보내기 | ⌘P |
+
+서식 단축키는 편집 모드에서만 동작한다.
+
 ## 설치
 
 1. [Releases](https://github.com/Mm-767/md-viewer/releases)에서 `MD-Viewer-<버전>-arm64.dmg`를 받는다. Apple Silicon 맥 전용이다.
@@ -25,12 +37,15 @@
 
 ## 개발
 
+Node 24를 쓴다(`.nvmrc`). nvm을 쓰면 `nvm use`로 맞출 수 있다.
+
 ```sh
 npm install
 npm start          # 번들 후 앱 실행
-npm test           # 렌더링·툴바 명령 테스트
+npm test           # 렌더링·에디터 명령 테스트
 npm run dist       # release/mac-arm64/MD Viewer.app 생성
 npm run release    # release/MD-Viewer-<버전>-arm64.dmg 생성
+npm run icon       # build/icon.svg → build/icon.png 다시 렌더링
 ```
 
-아이콘 원본은 `build/icon.svg`이고, 빌드에는 1024px로 렌더링한 `build/icon.png`를 쓴다.
+구조와 설계 결정은 [DESIGN.md](DESIGN.md)에 있다.

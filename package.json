@@ -10,7 +10,8 @@
     "start": "npm run build && electron .",
     "test": "node test.mjs",
     "dist": "npm run build && electron-builder --mac --dir",
-    "release": "npm run build && electron-builder --mac dmg"
+    "release": "npm run build && electron-builder --mac dmg",
+    "icon": "electron scripts/render-icon.js"
   },
   "devDependencies": {
     "@codemirror/lang-markdown": "^6.5.2",
