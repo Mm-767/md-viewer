@@ -1,8 +1,51 @@
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState, EditorSelection, Compartment } from '@codemirror/state';
+import { EditorState, EditorSelection, Compartment, StateField } from '@codemirror/state';
+import { Decoration, WidgetType } from '@codemirror/view';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
+
+// Pasted images are stored inline as base64; show them in the editor as a small chip
+// instead of hundreds of KB of text. The document itself is unchanged.
+export const IMAGE_DATA_RE = /data:image\/[\w.+-]+;base64,[A-Za-z0-9+/=]{64,}/g;
+
+class ImageDataWidget extends WidgetType {
+  constructor(url) {
+    super();
+    this.url = url;
+  }
+  eq(other) { return other.url === this.url; }
+  toDOM() {
+    const chip = document.createElement('span');
+    chip.className = 'cm-image-data';
+    chip.title = '이미지 데이터 (base64). 백스페이스로 통째로 지울 수 있어요';
+    const img = document.createElement('img');
+    img.src = this.url;
+    const kb = Math.max(1, Math.round((this.url.length - this.url.indexOf(',') - 1) * 0.75 / 1024));
+    chip.append(img, `이미지 · ${kb}KB`);
+    return chip;
+  }
+}
+
+// Scans the whole document, not just the viewport: CodeMirror only renders part of a very long
+// line, so a viewport-based matcher would fold only a slice of the base64.
+// ponytail: full rescan on every edit; map ranges through changes if typing lags on multi-MB docs.
+function imageDataDecorations(doc) {
+  const ranges = [];
+  for (const m of doc.toString().matchAll(IMAGE_DATA_RE)) {
+    ranges.push(Decoration.replace({ widget: new ImageDataWidget(m[0]) }).range(m.index, m.index + m[0].length));
+  }
+  return Decoration.set(ranges);
+}
+
+export const foldImageData = StateField.define({
+  create: (state) => imageDataDecorations(state.doc),
+  update: (decorations, tr) => (tr.docChanged ? imageDataDecorations(tr.state.doc) : decorations),
+  provide: (field) => [
+    EditorView.decorations.from(field),
+    EditorView.atomicRanges.of((view) => view.state.field(field)),
+  ],
+});
 
 // Toolbar commands take a state and return a transaction spec, so they can be tested without a DOM.
 
@@ -80,6 +123,7 @@ export function createEditor(parent, { onChange, onImageFile }) {
     basicSetup,
     markdown({ codeLanguages: languages }),
     EditorView.lineWrapping,
+    foldImageData,
     theme.of(dark ? oneDark : []),
     EditorView.updateListener.of((u) => { if (u.docChanged) onChange(); }),
     EditorView.domEventHandlers({

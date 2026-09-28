@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { EditorState, EditorSelection } from '@codemirror/state';
 import { render } from './render.mjs';
-import { commands, codeBlock } from './editor.mjs';
+import { commands, codeBlock, foldImageData } from './editor.mjs';
+
+// The whole data URL must be folded, however long the line is.
+const png = `data:image/png;base64,${'A'.repeat(500000)}`;
+const folded = [];
+const docWithImage = EditorState.create({ doc: `x\n![image](${png}) text\n![s](data:image/png;base64,abc)`, extensions: foldImageData });
+docWithImage.field(foldImageData).between(0, docWithImage.doc.length, (from, to) => { folded.push([from, to]); });
+assert.deepEqual(folded, [[11, 11 + png.length]]);
 
 assert.match(await render('$x^2$'), /class="katex"/);
 
