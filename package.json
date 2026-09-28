@@ -57,6 +57,9 @@
         "role": "Editor",
         "rank": "Default"
       }
-    ]
+    ],
+    "directories": {
+      "output": "release"
+    }
   }
 }
