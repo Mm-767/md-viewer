@@ -3,7 +3,7 @@ import { EditorState, EditorSelection, Compartment, StateField } from '@codemirr
 import { Decoration, WidgetType } from '@codemirror/view';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
-import { oneDark } from '@codemirror/theme-one-dark';
+import { editorThemes } from './theme.mjs';
 
 // Pasted images are stored inline as base64; show them in the editor as a small chip
 // instead of hundreds of KB of text. The document itself is unchanged.
@@ -124,7 +124,7 @@ export function createEditor(parent, { onChange, onImageFile }) {
     markdown({ codeLanguages: languages }),
     EditorView.lineWrapping,
     foldImageData,
-    theme.of(dark ? oneDark : []),
+    theme.of(dark ? editorThemes.dark : editorThemes.light),
     EditorView.updateListener.of((u) => { if (u.docChanged) onChange(); }),
     EditorView.domEventHandlers({
       paste: (e) => pickImage(e.clipboardData?.files, e),
@@ -137,7 +137,7 @@ export function createEditor(parent, { onChange, onImageFile }) {
     setDoc: (doc) => view.setState(EditorState.create({ doc, extensions: extensions() })),
     setDark: (value) => {
       dark = value;
-      view.dispatch({ effects: theme.reconfigure(dark ? oneDark : []) });
+      view.dispatch({ effects: theme.reconfigure(dark ? editorThemes.dark : editorThemes.light) });
     },
     run: (name) => { view.dispatch(commands[name](view.state)); view.focus(); },
     insertCodeBlock: (lang) => { view.dispatch(codeBlock(view.state, lang)); view.focus(); },

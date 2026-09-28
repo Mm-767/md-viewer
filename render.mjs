@@ -6,6 +6,7 @@ import remarkMath from 'remark-math';
 import remarkRehype from 'remark-rehype';
 import rehypeKatex from 'rehype-katex';
 import rehypeShiki from '@shikijs/rehype';
+import { shikiThemes } from './theme.mjs';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
 
@@ -55,8 +56,14 @@ const processor = unified()
   .use(remarkRehype)
   .use(rehypeKatex)
   .use(recordLines)
-  // Same highlighter and theme as Astro's default, which the blog uses.
-  .use(rehypeShiki, { theme: 'github-dark', defaultLanguage: 'plaintext', fallbackLanguage: 'plaintext', addLanguageClass: true })
+  // Both themes are emitted as CSS variables (--shiki-light / --shiki-dark); index.html picks one.
+  .use(rehypeShiki, {
+    themes: shikiThemes,
+    defaultColor: false,
+    defaultLanguage: 'plaintext',
+    fallbackLanguage: 'plaintext',
+    addLanguageClass: true,
+  })
   .use(applyLines)
   .use(rehypeStringify);
 

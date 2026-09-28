@@ -16,7 +16,8 @@
 | 다크모드 | 맥 설정 따라가기 | 앱 안 수동 전환 |
 | mermaid | 넣기 | 나중에 |
 | 제목·태그 입력칸 | 넣지 않기 | 벨로그식 입력칸 |
-| 코드 하이라이트 | Shiki `github-dark` | 블로그(Astro 기본)와 같은 결과를 내기 위해 |
+| 코드 하이라이트 | Shiki + 직접 만든 테마(`theme.mjs`) | 처음엔 블로그와 같은 `github-dark`였다. 사용자가 원하는 디자인(중립 회색 바탕, 따뜻한 문법 색)으로 바꿨다 |
+| 화면 디자인 | 중립 회색 다크 / 따뜻한 흰색 라이트, 주황 강조색 | GitHub 기본 색(남색 바탕) |
 | 코드블록 입력 | 언어 검색 팝업 | 벨로그식 ``` 뒤 자동완성, 둘 다 |
 | 인라인 코드 단축키 | ⇧⌘C | ⌘`는 macOS의 같은 앱 창 전환과 겹친다 |
 | 단축키 안내 | 서식 메뉴 + 도움말 → 키보드 단축키 | 목록은 메뉴 템플릿에서 만들어서 실제 단축키와 어긋나지 않는다 |
@@ -31,7 +32,8 @@
 | `render.mjs` | 마크다운 → HTML. `render(md)`는 비동기다 |
 | `editor.mjs` | CodeMirror 설정과 툴바 명령(`wrap`, `linePrefix`, `codeBlock`), base64 이미지 접기 |
 | `renderer.mjs` | 화면 쪽 로직. 뷰어/편집 전환, 미리보기 렌더와 mermaid, 스크롤 동기화, 툴바·메뉴 명령 실행, 언어 선택 팝업 |
-| `index.html` | 레이아웃과 스타일. `github-markdown-css`와 KaTeX CSS를 쓰고, 코드블록 스타일은 블로그의 `src/pages/posts/[slug].astro`와 맞춘다 |
+| `index.html` | 레이아웃과 스타일. 바탕·글자·테두리 색을 CSS 변수로 정의하고, `github-markdown-css`가 읽는 색 변수를 이 값으로 덮어쓴다. 표, 인라인 코드, 코드블록 모양도 여기서 정한다 |
+| `theme.mjs` | 문법 하이라이트 색. 미리보기(Shiki)와 에디터(CodeMirror)가 같은 색표를 쓴다 |
 | `test.mjs` | 렌더링과 에디터 명령 테스트(`npm test`) |
 | `scripts/render-icon.js` | `build/icon.svg`를 1024px `build/icon.png`로 렌더링(`npm run icon`) |
 | `build/` | 앱 아이콘. electron-builder가 `icon.png`로 `.icns`를 만든다 |
@@ -45,7 +47,7 @@ remark-parse → remark-frontmatter → remark-gfm → remark-math → fixEscape
 ```
 - **fixEscapedMath**: LLM 출력에서 이스케이프된 LaTeX(`\\prod`, `x\_i`)를 되돌린다. 블로그 `astro.config.mjs`의 `remarkFixEscapedMath`와 같은 코드라서, 한쪽을 고치면 다른 쪽도 고쳐야 한다. remark-math가 미리 만든 `hChildren`까지 고쳐야 하고, 블록 수식은 `pre > code > text`로 한 단계 더 깊어서 하위 트리 전체를 훑는다.
 - **recordLines / applyLines**: 최상위 블록마다 원본 줄 번호를 `data-line`으로 붙인다. 스크롤 동기화에 쓴다. Shiki가 `<pre>`를 같은 자리에서 새로 만들면서 속성을 지우기 때문에, Shiki 전에 기록하고 후에 다시 붙인다.
-- **rehype-shiki**: `github-dark`. 언어가 없거나 모르는 언어면 `plaintext`로 처리한다. `language-mermaid` 클래스를 남겨서 렌더러가 mermaid 블록을 찾을 수 있게 한다.
+- **rehype-shiki**: `theme.mjs`의 라이트·다크 테마를 함께 넣어서, 글자마다 `--shiki-light`와 `--shiki-dark` 색을 둘 다 붙인다. 어느 쪽을 쓸지는 CSS가 맥 설정에 따라 고른다. 언어가 없거나 모르는 언어면 `plaintext`로 처리한다. `language-mermaid` 클래스를 남겨서 렌더러가 mermaid 블록을 찾을 수 있게 한다.
 - 프론트매터는 출력하지 않는다. 마크다운 안의 raw HTML은 렌더링하지 않는다.
 
 ## 핵심 동작
@@ -81,6 +83,7 @@ remark-parse → remark-frontmatter → remark-gfm → remark-math → fixEscape
 
 ## 처음 계획에서 바뀐 것
 - **렌더링이 비동기가 됐다.** 블로그와 같은 코드블록을 내려고 Shiki를 넣었기 때문이다. `data-line`도 Shiki 앞뒤로 나눠 붙이게 바뀌었다.
+- **디자인을 바꿨다.** 처음엔 GitHub 색(남색 바탕)에 블로그와 같은 `github-dark` 코드블록이었다. 사용자가 원하는 모습(중립 회색 바탕, 주황 인라인 코드, 둥근 표, 따뜻한 문법 색)에 맞춰 색표를 새로 만들었다. 그래서 코드블록 색은 더 이상 블로그와 같지 않다. 수식 렌더링은 여전히 블로그와 같다.
 - **블록 수식 버그를 찾았다.** 블로그에서 가져온 `remarkFixEscapedMath`가 블록 수식을 못 고치고 있었다. 앱과 블로그를 함께 고쳤다(블로그 PR #1). 확인할 때 Astro 콘텐츠 캐시(`node_modules/.astro`) 때문에 수정 전 빌드도 정상처럼 보여서 한 번 잘못 판단했다.
 - **mermaid 라이트 테마**를 `default`에서 블로그와 같은 `neutral`로 바꿨다.
 - **코드 버튼을 둘로 나눴다.** 처음에는 하나의 버튼이 한 줄이면 인라인, 여러 줄이면 블록이었다. 선택 없이 누르면 인라인이 들어가서 코드블록을 만들 방법이 안 보였다. 그래서 인라인 코드 버튼과 코드블록(언어 선택) 버튼으로 나눴다.
