@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { fileURLToPath } = require('node:url');
@@ -115,6 +115,40 @@ async function save(win, saveAs = false) {
   return true;
 }
 
+// PDFs (the live preview and the export) are printed from one hidden window that is always in
+// light mode, so dark mode never ends up on paper and the visible windows never flicker.
+let printWindow;
+let printQueue = Promise.resolve();
+
+async function getPrintWindow() {
+  if (printWindow && !printWindow.isDestroyed()) return printWindow;
+  printWindow = new BrowserWindow({ show: false, webPreferences: { preload: path.join(__dirname, 'preload.js') } });
+  await printWindow.loadFile(path.join(__dirname, 'index.html'), { query: { print: '1' } });
+  printWindow.webContents.debugger.attach('1.3');
+  await printWindow.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-color-scheme', value: 'light' }],
+  });
+  return printWindow;
+}
+
+// ponytail: one print at a time; a slow render delays the next preview rather than racing it.
+function renderPdf(text, dir) {
+  const job = printQueue.then(async () => {
+    const win = await getPrintWindow();
+    await win.webContents.executeJavaScript(`__renderForPrint(${JSON.stringify(text)}, ${JSON.stringify(dir)})`);
+    return win.webContents.printToPDF({ pageSize: 'A4', printBackground: true });
+  });
+  printQueue = job.catch(() => {});
+  return job;
+}
+
+const docDir = (win) => {
+  const doc = docs.get(win.id);
+  return doc?.path ? path.dirname(doc.path) : null;
+};
+
+ipcMain.handle('render-pdf', (e, text) => renderPdf(text, docDir(BrowserWindow.fromWebContents(e.sender))));
+
 async function exportPdf(win) {
   const doc = docs.get(win.id);
   const base = doc.path ? doc.path.replace(/\.(md|markdown)$/i, '') : '제목 없음';
@@ -123,16 +157,11 @@ async function exportPdf(win) {
     filters: [{ name: 'PDF', extensions: ['pdf'] }],
   });
   if (canceled) return;
-  // Dark mode would print light text; force the light theme while printing.
-  nativeTheme.themeSource = 'light';
   try {
-    await win.webContents.executeJavaScript('__prepareForPrint()');
-    const data = await win.webContents.printToPDF({ pageSize: 'A4', printBackground: true });
-    await fs.writeFile(filePath, data);
+    const { text } = await win.webContents.executeJavaScript('__getContent()');
+    await fs.writeFile(filePath, await renderPdf(text, docDir(win)));
   } catch (err) {
     dialog.showErrorBox('PDF를 만들지 못했습니다', err.message);
-  } finally {
-    nativeTheme.themeSource = 'system';
   }
 }
 
@@ -173,6 +202,14 @@ function buildMenu() {
       label: '보기',
       submenu: [
         { label: '편집 모드 전환', accelerator: 'CmdOrCtrl+E', click: send('toggle-edit') },
+        { type: 'separator' },
+        { label: '미리보기: 기본', accelerator: 'CmdOrCtrl+Alt+1', click: send('preview:basic') },
+        { label: '미리보기: PDF', accelerator: 'CmdOrCtrl+Alt+2', click: send('preview:pdf') },
+        { label: '미리보기: 노션', accelerator: 'CmdOrCtrl+Alt+3', click: send('preview:notion') },
+        { type: 'separator' },
+        { label: 'PDF 확대', accelerator: 'CmdOrCtrl+=', click: send('zoom:in') },
+        { label: 'PDF 축소', accelerator: 'CmdOrCtrl+-', click: send('zoom:out') },
+        { label: 'PDF 폭 맞춤', accelerator: 'CmdOrCtrl+0', click: send('zoom:fit') },
         { type: 'separator' },
         { role: 'togglefullscreen' },
         { role: 'toggleDevTools' },
@@ -240,5 +277,5 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {}); // stay in the Dock like other macOS apps
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) newDocument();
+  if (docs.size === 0) newDocument(); // the hidden print window doesn't count
 });

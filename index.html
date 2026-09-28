@@ -12,14 +12,14 @@
     --bg: #fcfbf9; --pane: #f5f4f0; --surface: #f1efe9; --line: #e4e1da;
     --fg: #1f1f1f; --muted: #6b6a66; --faint: #a9a69e; --accent: #c4552d;
     --code-bg: #efece6; --table-head: #f1efe9; --table-cell: #fbfaf7;
-    --selection: rgba(196, 85, 45, 0.18); --active-line: rgba(0, 0, 0, 0.03);
+    --selection: rgba(196, 85, 45, 0.18); --active-line: rgba(0, 0, 0, 0.03); --pdf-bg: #e9e7e2;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #212121; --pane: #1b1b1b; --surface: #171717; --line: #343434;
       --fg: #ececec; --muted: #a3a3a3; --faint: #5f5f5f; --accent: #e8845c;
       --code-bg: #2e2e2e; --table-head: #353535; --table-cell: #2a2a2a;
-      --selection: rgba(232, 132, 92, 0.25); --active-line: rgba(255, 255, 255, 0.035);
+      --selection: rgba(232, 132, 92, 0.25); --active-line: rgba(255, 255, 255, 0.035); --pdf-bg: #2b2b2b;
     }
   }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
@@ -49,9 +49,27 @@
   #editor .cm-image-data { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--muted); font: 12px -apple-system, sans-serif; vertical-align: middle; }
   #editor .cm-image-data img { width: 22px; height: 22px; object-fit: cover; border-radius: 4px; }
 
-  #preview { flex: 1 1 50%; min-width: 0; overflow: auto; position: relative; }
+  #preview-pane { display: flex; flex: 1 1 50%; min-width: 0; flex-direction: column; }
+  #preview-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .seg { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--surface); }
+  .seg button { padding: 4px 12px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .seg button.on { background: var(--bg); color: var(--fg); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
+  .bar-btn { padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .bar-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #pdf-zoom { display: none; align-items: center; gap: 4px; }
+  body.mode-pdf #pdf-zoom { display: inline-flex; }
+  #pdf-zoom .bar-btn { min-width: 28px; }
+  #zoom-label { min-width: 44px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
+  #pdf-status { color: var(--faint); font-size: 12px; }
+  .spacer { flex: 1; }
+  #preview { flex: 1; min-height: 0; overflow: auto; position: relative; }
+  #pdf-view { display: none; flex: 1; min-height: 0; overflow: auto; background: var(--pdf-bg); }
+  body.mode-pdf #preview { display: none; }
+  body.mode-pdf #pdf-view { display: block; }
+  #pdf-pages { display: flex; min-width: fit-content; flex-direction: column; align-items: center; gap: 16px; padding: 24px; }
+  #pdf-pages canvas { background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
   .markdown-body {
-    max-width: 860px; margin: 0 auto; padding: 56px 40px 40vh; box-sizing: border-box;
+    max-width: 860px; margin: 0 auto; padding: 40px 40px 40vh; box-sizing: border-box;
     font-size: 16px; line-height: 1.75;
     /* github-markdown-css reads its colors from these; point them at the app palette. */
     --bgColor-default: var(--bg); --bgColor-muted: var(--surface); --bgColor-neutral-muted: var(--code-bg);
@@ -79,12 +97,46 @@
   .markdown-body .mermaid { margin-bottom: 16px; text-align: center; }
   .markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
 
-  #mode-btn { position: fixed; top: 12px; right: 20px; z-index: 10; padding: 6px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--fg); font-size: 13px; font-weight: 600; cursor: pointer; }
-  #mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+  /* Notion look. Colors and spacing approximate Notion's page style; it is not Notion's own CSS. */
+  body.mode-notion {
+    --n-bg: #ffffff; --n-fg: #37352f; --n-muted: rgba(55, 53, 47, 0.65); --n-line: #e9e9e7;
+    --n-soft: #f7f6f3; --n-code: #eb5757; --n-code-bg: rgba(135, 131, 120, 0.15);
+  }
+  @media (prefers-color-scheme: dark) {
+    body.mode-notion {
+      --n-bg: #191919; --n-fg: rgba(255, 255, 255, 0.81); --n-muted: rgba(255, 255, 255, 0.46); --n-line: #2f2f2f;
+      --n-soft: #202020; --n-code: #ff7369; --n-code-bg: rgba(135, 131, 120, 0.15);
+    }
+  }
+  body.mode-notion #preview { background: var(--n-bg); }
+  .markdown-body.notion {
+    max-width: 708px; padding: 40px 48px 40vh; color: var(--n-fg); font-size: 16px; line-height: 1.5;
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
+    --bgColor-default: var(--n-bg); --fgColor-default: var(--n-fg); --fgColor-muted: var(--n-muted);
+    --borderColor-default: var(--n-line); --borderColor-muted: var(--n-line);
+  }
+  .markdown-body.notion h1 { margin: 2em 0 4px; font-size: 1.875em; font-weight: 600; line-height: 1.3; }
+  .markdown-body.notion h2 { margin: 1.4em 0 1px; font-size: 1.5em; font-weight: 600; line-height: 1.3; }
+  .markdown-body.notion h3, .markdown-body.notion h4 { margin: 1em 0 1px; font-size: 1.25em; font-weight: 600; line-height: 1.3; }
+  .markdown-body.notion p { margin: 4px 0; }
+  .markdown-body.notion a { color: inherit; text-decoration: underline; text-decoration-color: var(--n-muted); }
+  .markdown-body.notion hr { margin: 12px 0; background: var(--n-line); }
+  .markdown-body.notion blockquote { padding: 0 14px; border-left: 3px solid currentColor; color: inherit; }
+  .markdown-body.notion :not(pre) > code { padding: 0.2em 0.4em; border-radius: 4px; background: var(--n-code-bg); color: var(--n-code); font-size: 85%; }
+  .markdown-body.notion pre.shiki { padding: 32px 16px 32px 32px; border-radius: 4px; background: var(--n-soft) !important; font-size: 85%; line-height: 1.5; }
+  .markdown-body.notion .shiki, .markdown-body.notion .shiki span { color: var(--shiki-notion-light); }
+  @media (prefers-color-scheme: dark) {
+    .markdown-body.notion .shiki, .markdown-body.notion .shiki span { color: var(--shiki-notion-dark); }
+  }
+  .markdown-body.notion table { width: auto; border-collapse: collapse; border: 1px solid var(--n-line); border-radius: 0; }
+  .markdown-body.notion table th, .markdown-body.notion table td { padding: 7px 9px; border: 1px solid var(--n-line); background: var(--n-bg); font-size: 14px; }
+  .markdown-body.notion table th { background: var(--n-soft); font-weight: 600; }
+
+  #mode-btn { padding: 4px 14px; border-radius: 16px; }
 
   @media print {
-    #editor-pane, #mode-btn { display: none !important; }
-    html, body, #app, #preview { display: block; height: auto; overflow: visible; background: #fff; }
+    #editor-pane, #preview-bar, #pdf-view { display: none !important; }
+    html, body, #app, #preview-pane, #preview { display: block !important; height: auto; overflow: visible; background: #fff; }
     .markdown-body { max-width: none; padding: 0; --bgColor-default: #fff; }
   }
 </style>
@@ -114,9 +166,27 @@
     </div>
     <div id="editor"></div>
   </section>
-  <main id="preview"><article class="markdown-body"></article></main>
+  <section id="preview-pane">
+    <div id="preview-bar">
+      <div class="seg" id="preview-mode">
+        <button data-mode="basic" title="기본 (⌥⌘1)">기본</button>
+        <button data-mode="pdf" title="PDF (⌥⌘2)">PDF</button>
+        <button data-mode="notion" title="노션 (⌥⌘3)">노션</button>
+      </div>
+      <div id="pdf-zoom">
+        <button class="bar-btn" data-zoom="out" title="축소 (⌘-)">−</button>
+        <span id="zoom-label"></span>
+        <button class="bar-btn" data-zoom="in" title="확대 (⌘=)">+</button>
+        <button class="bar-btn" data-zoom="fit" title="폭 맞춤 (⌘0)">폭 맞춤</button>
+        <span id="pdf-status"></span>
+      </div>
+      <span class="spacer"></span>
+      <button class="bar-btn" id="mode-btn">편집</button>
+    </div>
+    <main id="preview"><article class="markdown-body"></article></main>
+    <div id="pdf-view"><div id="pdf-pages"></div></div>
+  </section>
 </div>
-<button id="mode-btn">편집</button>
 <input id="image-input" type="file" accept="image/*" hidden>
 <script src="dist/renderer.js"></script>
 </body>

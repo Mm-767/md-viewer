@@ -24,8 +24,8 @@ assert.doesNotMatch(withFrontmatter, /title:/);
 assert.match(withFrontmatter, /<h1 data-line="5">Hi<\/h1>/);
 
 const highlighted = await render('```js\nconst a = 1;\n```\n\n```\nplain\n```\n\n```nosuchlang\nx\n```');
-assert.equal(highlighted.match(/class="shiki shiki-themes md-viewer-dark md-viewer-light"/g)?.length, 3);
-assert.match(highlighted, /<span style="--shiki-dark:#C792D9;--shiki-light:#9B3FB5">const<\/span>/);
+assert.equal(highlighted.match(/class="shiki shiki-themes md-viewer-dark md-viewer-light notion-dark notion-light"/g)?.length, 3);
+assert.match(highlighted, /<span style="--shiki-dark:#C792D9;--shiki-light:#9B3FB5;--shiki-notion-dark:#569CD6;--shiki-notion-light:#0077AA">const<\/span>/);
 
 const mermaidBlock = await render('```mermaid\ngraph TD; A-->B\n```');
 assert.match(mermaidBlock, /class="language-mermaid"/);

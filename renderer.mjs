@@ -1,7 +1,12 @@
 import mermaid from 'mermaid';
+import * as pdfjs from 'pdfjs-dist';
 import { render } from './render.mjs';
 import { createEditor } from './editor.mjs';
 
+pdfjs.GlobalWorkerOptions.workerSrc = new URL('dist/pdf.worker.min.mjs', location.href).href;
+
+// The hidden window main.js prints PDFs from loads this page with ?print=1.
+const PRINT = new URLSearchParams(location.search).has('print');
 const preview = document.getElementById('preview');
 const article = preview.querySelector('.markdown-body');
 const modeBtn = document.getElementById('mode-btn');
@@ -22,6 +27,7 @@ const editor = createEditor(document.getElementById('editor'), {
     setDirty(true);
     clearTimeout(timer);
     timer = setTimeout(update, 150);
+    schedulePdf();
   },
   onImageFile: insertImage,
 });
@@ -89,6 +95,12 @@ function syncScroll() {
   const { view } = editor;
   const scroller = view.scrollDOM;
   const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+  if (previewMode === 'pdf') {
+    // A PDF is only pixels, with no source line numbers to anchor to, so follow proportionally.
+    const fraction = maxScroll > 0 ? scroller.scrollTop / maxScroll : 0;
+    pdfView.scrollTop = fraction * (pdfView.scrollHeight - pdfView.clientHeight);
+    return;
+  }
   if (maxScroll > 0 && scroller.scrollTop >= maxScroll - 2) {
     preview.scrollTop = preview.scrollHeight;
     return;
@@ -132,6 +144,124 @@ function applyTheme() {
   mermaid.initialize({ startOnLoad: false, theme: darkQuery.matches ? 'dark' : 'neutral' });
   return update();
 }
+
+// Preview modes: the app's own design, a real PDF of the document, or Notion's look.
+const MODES = ['basic', 'pdf', 'notion'];
+const modeSeg = document.getElementById('preview-mode');
+const pdfView = document.getElementById('pdf-view');
+const pdfPages = document.getElementById('pdf-pages');
+const zoomLabel = document.getElementById('zoom-label');
+const pdfStatus = document.getElementById('pdf-status');
+let previewMode = 'basic';
+
+function storedMode() {
+  try {
+    const mode = localStorage.getItem('previewMode');
+    return MODES.includes(mode) ? mode : 'basic';
+  } catch {
+    return 'basic';
+  }
+}
+
+function setPreviewMode(mode, { refresh = true } = {}) {
+  previewMode = mode;
+  for (const m of MODES) document.body.classList.toggle(`mode-${m}`, m === mode);
+  article.classList.toggle('notion', mode === 'notion');
+  for (const b of modeSeg.querySelectorAll('button')) b.classList.toggle('on', b.dataset.mode === mode);
+  try { localStorage.setItem('previewMode', mode); } catch { /* per-viewer convenience only */ }
+  if (mode === 'pdf' && refresh) refreshPdf();
+}
+
+// pdf.js scale 1 draws 1pt as 1px; PDF viewers call 96/72 of that "100%".
+const PT_TO_PX = 96 / 72;
+const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+let pdfTask = null; // pdf.js releases a document through its loading task
+let pdfDoc = null;
+let pdfZoom = 'fit'; // 'fit' or one of ZOOM_STEPS
+let shownZoom = 1;
+let pdfGenSeq = 0;
+let pdfDrawSeq = 0;
+let pdfTimer;
+let resizeTimer;
+
+function schedulePdf() {
+  if (PRINT || previewMode !== 'pdf') return;
+  clearTimeout(pdfTimer);
+  pdfTimer = setTimeout(refreshPdf, 500);
+}
+
+async function refreshPdf() {
+  const seq = ++pdfGenSeq;
+  pdfStatus.textContent = '만드는 중…';
+  try {
+    const bytes = await window.api.renderPdf(editor.view.state.doc.toString());
+    if (seq !== pdfGenSeq) return;
+    const task = pdfjs.getDocument({ data: bytes });
+    const doc = await task.promise;
+    if (seq !== pdfGenSeq) return void task.destroy();
+    pdfTask?.destroy();
+    pdfTask = task;
+    pdfDoc = doc;
+    await drawPdf();
+    pdfStatus.textContent = `${doc.numPages}쪽`;
+  } catch (err) {
+    if (seq === pdfGenSeq) pdfStatus.textContent = 'PDF를 만들지 못했어요';
+    console.error(err);
+  }
+}
+
+// ponytail: redraws every page on each update; draw only visible pages if long documents lag.
+async function drawPdf() {
+  if (!pdfDoc) return;
+  const seq = ++pdfDrawSeq;
+  const doc = pdfDoc;
+  const pageWidth = (await doc.getPage(1)).getViewport({ scale: 1 }).width;
+  const scale = pdfZoom === 'fit' ? Math.max(0.25, (pdfView.clientWidth - 48) / pageWidth) : pdfZoom * PT_TO_PX;
+  const dpr = window.devicePixelRatio || 1;
+  const canvases = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(viewport.width * dpr);
+    canvas.height = Math.floor(viewport.height * dpr);
+    canvas.style.width = `${Math.floor(viewport.width)}px`;
+    canvas.style.height = `${Math.floor(viewport.height)}px`;
+    await page.render({ canvas, viewport, transform: dpr === 1 ? undefined : [dpr, 0, 0, dpr, 0, 0] }).promise;
+    if (seq !== pdfDrawSeq) return;
+    canvases.push(canvas);
+  }
+  // Keep the reader's place across a regenerate or a zoom.
+  const max = pdfView.scrollHeight - pdfView.clientHeight;
+  const fraction = max > 0 ? pdfView.scrollTop / max : 0;
+  pdfPages.replaceChildren(...canvases);
+  pdfView.scrollTop = fraction * (pdfView.scrollHeight - pdfView.clientHeight);
+  shownZoom = scale / PT_TO_PX;
+  zoomLabel.textContent = `${Math.round(shownZoom * 100)}%`;
+}
+
+function zoom(action) {
+  if (previewMode !== 'pdf') return;
+  if (action === 'fit') pdfZoom = 'fit';
+  else if (action === 'in') pdfZoom = ZOOM_STEPS.find((z) => z > shownZoom + 0.001) ?? ZOOM_STEPS.at(-1);
+  else pdfZoom = ZOOM_STEPS.findLast((z) => z < shownZoom - 0.001) ?? ZOOM_STEPS[0];
+  drawPdf();
+}
+
+new ResizeObserver(() => {
+  if (previewMode !== 'pdf' || pdfZoom !== 'fit') return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(drawPdf, 150);
+}).observe(pdfView);
+
+modeSeg.addEventListener('click', (e) => {
+  const mode = e.target.closest('button[data-mode]')?.dataset.mode;
+  if (mode && mode !== previewMode) setPreviewMode(mode);
+});
+document.getElementById('pdf-zoom').addEventListener('click', (e) => {
+  const action = e.target.closest('button[data-zoom]')?.dataset.zoom;
+  if (action) zoom(action);
+});
 
 function runCommand(cmd) {
   if (!isEditing()) return;
@@ -230,24 +360,33 @@ window.api.onLoad(({ content, dir: d, editing }) => {
   update();
   setEditing(editing);
   preview.scrollTop = 0;
+  pdfView.scrollTop = 0;
+  if (previewMode === 'pdf') refreshPdf();
 });
 window.api.onSaved(({ dir: d, version: v }) => {
   dir = d;
   savedVersion = v;
   setDirty(version !== savedVersion);
   fixImagePaths();
+  schedulePdf(); // relative image paths resolve against the new location
 });
 window.api.onMenu((action) => {
   if (action === 'toggle-edit') setEditing(!isEditing());
   else if (action.startsWith('format:')) runCommand(action.slice('format:'.length));
+  else if (action.startsWith('preview:')) setPreviewMode(action.slice('preview:'.length));
+  else if (action.startsWith('zoom:')) zoom(action.slice('zoom:'.length));
 });
 
 window.__getContent = () => ({ text: editor.view.state.doc.toString(), version });
-window.__prepareForPrint = async () => {
-  // nativeTheme was just switched to light; wait for the media query to follow.
-  for (let i = 0; i < 50 && darkQuery.matches; i++) await new Promise((r) => setTimeout(r, 20));
-  await applyTheme();
+// Called by main.js on the hidden print window; resolves once the page is ready to print.
+window.__renderForPrint = async (md, d) => {
+  dir = d;
+  editor.setDoc(md);
+  update();
   for (let p; p !== lastRender; ) { p = lastRender; await p; }
+  await document.fonts.ready;
+  await Promise.all([...article.querySelectorAll('img')].map((img) => img.decode().catch(() => {})));
 };
 
+if (!PRINT) setPreviewMode(storedMode(), { refresh: false });
 applyTheme();

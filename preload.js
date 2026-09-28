@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('api', {
   onSaved: (cb) => ipcRenderer.on('saved', (_e, data) => cb(data)),
   onMenu: (cb) => ipcRenderer.on('menu', (_e, action) => cb(action)),
   setDirty: (dirty) => ipcRenderer.send('dirty', dirty),
+  renderPdf: (text) => ipcRenderer.invoke('render-pdf', text),
 });

@@ -34,9 +34,24 @@ function shikiTheme(name, type, c) {
   };
 }
 
+// Approximations of Notion's code block colors, used by the Notion preview mode.
+const NOTION_SYNTAX = {
+  light: {
+    fg: '#37352f', comment: '#708090', keyword: '#0077aa', type: '#dd4a68', property: '#990055',
+    primitive: '#0077aa', string: '#669900', func: '#dd4a68', punct: '#999999',
+  },
+  dark: {
+    fg: '#d4d4d4', comment: '#6a9955', keyword: '#569cd6', type: '#4ec9b0', property: '#9cdcfe',
+    primitive: '#4ec9b0', string: '#ce9178', func: '#dcdcaa', punct: '#d4d4d4',
+  },
+};
+
+// Keys become CSS variables on every token (--shiki-dark, --shiki-notion-light, ...).
 export const shikiThemes = {
   dark: shikiTheme('md-viewer-dark', 'dark', SYNTAX.dark),
   light: shikiTheme('md-viewer-light', 'light', SYNTAX.light),
+  'notion-dark': shikiTheme('notion-dark', 'dark', NOTION_SYNTAX.dark),
+  'notion-light': shikiTheme('notion-light', 'light', NOTION_SYNTAX.light),
 };
 
 function editorTheme(dark, c) {
