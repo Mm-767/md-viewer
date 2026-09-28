@@ -33,11 +33,17 @@ function setDirty(value) {
 }
 
 function update() {
-  const seq = ++renderSeq;
-  article.innerHTML = render(editor.view.state.doc.toString());
-  fixImagePaths();
-  lastRender = drawMermaid(seq).then(() => { if (isEditing()) syncScroll(); });
+  lastRender = renderPreview(++renderSeq);
   return lastRender;
+}
+
+async function renderPreview(seq) {
+  const html = await render(editor.view.state.doc.toString());
+  if (seq !== renderSeq) return;
+  article.innerHTML = html;
+  fixImagePaths();
+  await drawMermaid(seq);
+  if (seq === renderSeq && isEditing()) syncScroll();
 }
 
 // ponytail: unbounded cache keyed by theme+source; fine for one document's diagrams.
@@ -45,7 +51,7 @@ const svgCache = new Map();
 let mermaidId = 0;
 
 async function drawMermaid(seq) {
-  const theme = darkQuery.matches ? 'dark' : 'default';
+  const theme = darkQuery.matches ? 'dark' : 'neutral';
   for (const code of article.querySelectorAll('pre > code.language-mermaid')) {
     const src = code.textContent;
     const key = `${theme}\n${src}`;
@@ -123,7 +129,7 @@ function insertImage(file) {
 
 function applyTheme() {
   editor.setDark(darkQuery.matches);
-  mermaid.initialize({ startOnLoad: false, theme: darkQuery.matches ? 'dark' : 'default' });
+  mermaid.initialize({ startOnLoad: false, theme: darkQuery.matches ? 'dark' : 'neutral' });
   return update();
 }
 

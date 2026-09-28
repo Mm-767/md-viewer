@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https: http:; font-src 'self' data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https: http:; font-src 'self' data:">
 <title>MD Viewer</title>
 <link rel="stylesheet" href="dist/github-markdown.css">
 <link rel="stylesheet" href="dist/katex/katex.min.css">
@@ -34,6 +34,10 @@
   #preview { flex: 1 1 50%; min-width: 0; overflow: auto; position: relative; }
   .markdown-body { max-width: 860px; margin: 0 auto; padding: 56px 40px 40vh; box-sizing: border-box; }
   .markdown-body .mermaid { margin-bottom: 16px; text-align: center; }
+  /* Keep in sync with the code block styles in the blog's src/pages/posts/[slug].astro. */
+  .markdown-body pre.shiki { background: #33332e !important; border-radius: 12px; padding: 18px 20px; font-size: 13px; line-height: 1.6; overflow-x: auto; }
+  .markdown-body pre.shiki code { background: transparent; font-family: ui-monospace, Menlo, monospace; }
+  .markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
 
   #mode-btn { position: fixed; top: 12px; right: 20px; z-index: 10; padding: 6px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--fg); font-size: 13px; font-weight: 600; cursor: pointer; }
   #mode-btn:hover { border-color: var(--accent); color: var(--accent); }

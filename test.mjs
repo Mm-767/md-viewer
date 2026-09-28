@@ -3,22 +3,31 @@ import { EditorState, EditorSelection } from '@codemirror/state';
 import { render } from './render.mjs';
 import { commands } from './editor.mjs';
 
-assert.match(render('$x^2$'), /class="katex"/);
+assert.match(await render('$x^2$'), /class="katex"/);
 
-// LLM output escapes LaTeX (\\prod, x\_i); the blog's fix must undo it. Without the fix
-// KaTeX reads \\ as a line break, so check for the rendered ∏ rather than for katex-error.
-assert.match(render('$\\\\prod_{i} x\\_i$'), /∏/);
+// LLM output escapes LaTeX (\\prod, x\_i); the blog's fix must undo it, inline and display.
+// Without the fix KaTeX reads \\ as a line break, so check for the rendered ∏, not katex-error.
+assert.match(await render('$\\\\prod_{i} x\\_i$'), /∏/);
+const display = await render('$$\n\\\\prod_{i} x\\_i\n$$');
+assert.match(display, /katex-display/);
+assert.match(display, /∏/);
 
-const withFrontmatter = render('---\ntitle: "t"\n---\n\n# Hi');
+const withFrontmatter = await render('---\ntitle: "t"\n---\n\n# Hi');
 assert.doesNotMatch(withFrontmatter, /title:/);
 assert.match(withFrontmatter, /<h1 data-line="5">Hi<\/h1>/);
 
-assert.match(render('```mermaid\ngraph TD; A-->B\n```'), /class="language-mermaid"/);
+const highlighted = await render('```js\nconst a = 1;\n```\n\n```\nplain\n```\n\n```nosuchlang\nx\n```');
+assert.equal(highlighted.match(/class="shiki github-dark"/g)?.length, 3);
+assert.match(highlighted, /<span style="color:#F97583">const<\/span>/);
 
-const anchors = render('# a\n\npara\n\n- x');
+const mermaidBlock = await render('```mermaid\ngraph TD; A-->B\n```');
+assert.match(mermaidBlock, /class="language-mermaid"/);
+
+const anchors = await render('# a\n\npara\n\n- x\n\n```js\nx\n```');
 assert.match(anchors, /<h1 data-line="1">/);
 assert.match(anchors, /<p data-line="3">/);
 assert.match(anchors, /<ul data-line="5">/);
+assert.match(anchors, /<pre[^>]*data-line="7"/);
 
 const state = (doc, from, to = from) => EditorState.create({ doc, selection: EditorSelection.single(from, to) });
 const run = (s, name) => s.update(commands[name](s)).state;
