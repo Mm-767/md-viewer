@@ -4,7 +4,7 @@
 .md 파일을 열 때마다 Xcode로 열려서 불편했다. 그래서 맥에 설치하는 마크다운 앱을 만들었다. 기본은 뷰어이고, 편집 버튼을 누르면 벨로그처럼 왼쪽 에디터(툴바 포함)와 오른쪽 미리보기로 나뉜다. 수식과 코드블록은 [깃블로그](https://github.com/Mm-767/Mm-767.github.io)와 똑같이 보여야 하고, .md 파일로 저장하고 PDF로 내보낼 수 있어야 한다.
 
 ## 결정
-설계 결정의 자세한 기록(검토한 선택지, 당시 몰랐던 것)은 노션 ADR-47~49에 있다.
+설계 결정의 자세한 기록(검토한 선택지, 당시 몰랐던 것)은 노션 ADR-47~49, 52, 53에 있다.
 
 | 항목 | 선택 | 버린 선택지 또는 이유 |
 |---|---|---|
@@ -23,22 +23,26 @@
 | 단축키 안내 | 서식 메뉴 + 도움말 → 키보드 단축키 | 목록은 메뉴 템플릿에서 만들어서 실제 단축키와 어긋나지 않는다 |
 | base64 표시 | 에디터에서만 썸네일 칩으로 접기, 파일은 그대로 | 저장 방식을 images 폴더로 바꾸기 |
 | 배포 | GitHub Releases에 dmg(Apple Silicon) | 공증 없음, Apple Development 인증서로 서명 |
+| 미리보기 대상 | 기본 / PDF / 노션 전환 | PDF만, 노션만 |
+| PDF 미리보기 | 실제 PDF를 만들어 pdf.js로 그리기 | CSS로 종이 모양 흉내(페이지 나뉘는 위치가 근사치), 크롬 기본 PDF 뷰어(갱신마다 위치와 배율이 초기화됨) |
+| 노션으로 옮기기 | 노션용 복사 버튼(만드는 중) | 노션 API 업로드(토큰 설정 필요), 노션 MCP 업로드(OAuth 코드가 많고 도구 모양이 바뀔 수 있음) |
+| 줄바꿈 | 표준 마크다운(엔터 한 번은 띄어쓰기, 빈 줄이나 줄 끝 `\`로 줄바꿈) | 엔터 한 번 = 줄바꿈(remark-breaks). 블로그·GitHub과 달라진다 |
 
 ## 구조
 | 파일 | 역할 |
 |---|---|
-| `main.js` | 메인 프로세스. 파일 하나당 창 하나(비어 있는 새 창은 재사용), 메뉴와 단축키, 열기/저장 다이얼로그, 수정 여부 추적과 닫기 확인, PDF 내보내기, Finder 더블클릭(`open-file`) 처리, 외부 링크를 브라우저로 열기 |
-| `preload.js` | `contextBridge`로 IPC 네 가지만 노출(`onLoad`, `onSaved`, `onMenu`, `setDirty`). `contextIsolation` 켜짐, `nodeIntegration` 꺼짐 |
+| `main.js` | 메인 프로세스. 파일 하나당 창 하나(비어 있는 새 창은 재사용), 메뉴와 단축키, 열기/저장 다이얼로그, 수정 여부 추적과 닫기 확인, PDF를 뽑는 숨은 창, Finder 더블클릭(`open-file`) 처리, 외부 링크를 브라우저로 열기 |
+| `preload.js` | `contextBridge`로 IPC 다섯 가지만 노출(`onLoad`, `onSaved`, `onMenu`, `setDirty`, `renderPdf`). `contextIsolation` 켜짐, `nodeIntegration` 꺼짐 |
 | `render.mjs` | 마크다운 → HTML. `render(md)`는 비동기다 |
 | `editor.mjs` | CodeMirror 설정과 툴바 명령(`wrap`, `linePrefix`, `codeBlock`), base64 이미지 접기 |
-| `renderer.mjs` | 화면 쪽 로직. 뷰어/편집 전환, 미리보기 렌더와 mermaid, 스크롤 동기화, 툴바·메뉴 명령 실행, 언어 선택 팝업 |
-| `index.html` | 레이아웃과 스타일. 바탕·글자·테두리 색을 CSS 변수로 정의하고, `github-markdown-css`가 읽는 색 변수를 이 값으로 덮어쓴다. 표, 인라인 코드, 코드블록 모양도 여기서 정한다 |
-| `theme.mjs` | 문법 하이라이트 색. 미리보기(Shiki)와 에디터(CodeMirror)가 같은 색표를 쓴다 |
+| `renderer.mjs` | 화면 쪽 로직. 뷰어/편집 전환, 미리보기 모드(기본/PDF/노션), 미리보기 렌더와 mermaid, PDF 그리기와 확대/축소, 스크롤 동기화, 툴바·메뉴 명령 실행, 언어 선택 팝업 |
+| `index.html` | 레이아웃과 스타일. 바탕·글자·테두리 색을 CSS 변수로 정의하고, `github-markdown-css`가 읽는 색 변수를 이 값으로 덮어쓴다. 표, 인라인 코드, 코드블록 모양과 노션 모드 스타일도 여기서 정한다 |
+| `theme.mjs` | 문법 하이라이트 색. 미리보기(Shiki)와 에디터(CodeMirror)가 같은 색표를 쓰고, 노션 모드용 색표(노션 코드블록 색을 흉내 낸 것)도 있다 |
 | `test.mjs` | 렌더링과 에디터 명령 테스트(`npm test`) |
 | `scripts/render-icon.js` | `build/icon.svg`를 1024px `build/icon.png`로 렌더링(`npm run icon`) |
 | `build/` | 앱 아이콘. electron-builder가 `icon.png`로 `.icns`를 만든다 |
 
-렌더러 쪽 패키지(CodeMirror, unified, Shiki, mermaid)는 `esbuild`로 `dist/renderer.js` 하나에 묶는다. 그래서 패키지된 앱에는 `node_modules`가 들어가지 않고 모두 `devDependencies`에 있다.
+렌더러 쪽 패키지(CodeMirror, unified, Shiki, mermaid, pdf.js)는 `esbuild`로 `dist/renderer.js` 하나에 묶는다. 그래서 패키지된 앱에는 `node_modules`가 들어가지 않고 모두 `devDependencies`에 있다.
 
 ## 렌더링 파이프라인
 ```
@@ -47,7 +51,7 @@ remark-parse → remark-frontmatter → remark-gfm → remark-math → fixEscape
 ```
 - **fixEscapedMath**: LLM 출력에서 이스케이프된 LaTeX(`\\prod`, `x\_i`)를 되돌린다. 블로그 `astro.config.mjs`의 `remarkFixEscapedMath`와 같은 코드라서, 한쪽을 고치면 다른 쪽도 고쳐야 한다. remark-math가 미리 만든 `hChildren`까지 고쳐야 하고, 블록 수식은 `pre > code > text`로 한 단계 더 깊어서 하위 트리 전체를 훑는다.
 - **recordLines / applyLines**: 최상위 블록마다 원본 줄 번호를 `data-line`으로 붙인다. 스크롤 동기화에 쓴다. Shiki가 `<pre>`를 같은 자리에서 새로 만들면서 속성을 지우기 때문에, Shiki 전에 기록하고 후에 다시 붙인다.
-- **rehype-shiki**: `theme.mjs`의 라이트·다크 테마를 함께 넣어서, 글자마다 `--shiki-light`와 `--shiki-dark` 색을 둘 다 붙인다. 어느 쪽을 쓸지는 CSS가 맥 설정에 따라 고른다. 언어가 없거나 모르는 언어면 `plaintext`로 처리한다. `language-mermaid` 클래스를 남겨서 렌더러가 mermaid 블록을 찾을 수 있게 한다.
+- **rehype-shiki**: `theme.mjs`의 테마 네 개(기본 라이트·다크, 노션 라이트·다크)를 함께 넣어서, 글자마다 `--shiki-light`, `--shiki-dark`, `--shiki-notion-light`, `--shiki-notion-dark` 색을 전부 붙인다. 어느 쪽을 쓸지는 CSS가 미리보기 모드와 맥 설정에 따라 고른다. 언어가 없거나 모르는 언어면 `plaintext`로 처리한다. `language-mermaid` 클래스를 남겨서 렌더러가 mermaid 블록을 찾을 수 있게 한다.
 - 프론트매터는 출력하지 않는다. 마크다운 안의 raw HTML은 렌더링하지 않는다.
 
 ## 핵심 동작
@@ -60,7 +64,10 @@ remark-parse → remark-frontmatter → remark-gfm → remark-math → fixEscape
 - **이미지 경로**: 상대경로 이미지는 열린 md 파일 위치 기준의 `file://` 주소로 바꿔서 보여준다.
 - **저장과 수정 표시**: 편집할 때마다 버전 번호를 올리고, 저장할 때의 버전과 비교해서 수정 여부를 정한다. 저장 중에 입력해도 수정 표시가 잘못 꺼지지 않는다. 창 제목과 닫기 버튼의 점(●)으로 보여준다.
 - **닫기 확인**: 저장하지 않은 창을 닫으면 저장/저장 안 함/취소를 묻는다.
-- **PDF**: ⌘P를 누르면 테마를 잠깐 라이트로 바꾸고 mermaid를 다시 그린 뒤 A4로 `printToPDF`하고, 끝나면 시스템 테마로 되돌린다. 그러지 않으면 다크모드에서 흰 종이에 밝은 글자가 찍힌다. print CSS가 에디터와 버튼을 숨긴다.
+- **미리보기 모드**: 미리보기 위 막대에서 기본/PDF/노션을 고른다(⌥⌘1/2/3). 마지막에 고른 모드를 기억한다.
+- **PDF 만들기**: PDF는 화면에 안 보이는 인쇄 전용 창에서 뽑는다. 이 창만 개발자 도구 프로토콜(`Emulation.setEmulatedMedia`)로 항상 라이트 모드로 보이게 해서, 다크모드에서도 흰 종이에 밝은 글자가 찍히지 않고 보이는 창은 깜빡이지 않는다. 문서를 넘겨 렌더링과 mermaid, 글꼴, 이미지가 끝나길 기다린 뒤 A4로 `printToPDF`한다. 요청은 한 번에 하나씩 처리한다. ⌘P 내보내기도 같은 창을 쓴다. print CSS가 에디터와 막대를 숨긴다.
+- **PDF 미리보기**: 입력을 멈추고 0.5초 뒤에 PDF를 새로 만들어 pdf.js로 페이지마다 캔버스에 그린다. 늦게 온 옛 결과는 순번으로 버린다. 다시 그려도 보던 위치(비율)와 배율을 유지한다. 폭 맞춤·확대·축소(⌘0, ⌘=, ⌘-)가 된다. 에디터와 스크롤은 비율로만 맞춘다. PDF에는 원본 줄 번호가 없기 때문이다. 처음 한 번은 인쇄 창을 만드느라 2~3초, 그다음은 1초 안쪽이 걸린다.
+- **노션 모드**: 노션 페이지처럼 보이게 CSS로 흉내 낸다(글꼴, 빨간 인라인 코드, 각진 표, 회색 코드블록, 노션 폭 708px). 노션의 실제 CSS가 아니라 근사치다.
 - **파일 연결**: electron-builder의 `fileAssociations`로 .md/.markdown을 열 수 있는 앱으로 등록한다. 앱이 준비되기 전에 들어온 `open-file`은 큐에 쌓았다가 연다. 기본 앱 지정은 사용자가 Finder에서 한다.
 - **링크**: 미리보기의 http(s) 링크는 기본 브라우저로 연다. 미리보기에 .md 파일을 끌어다 놓으면 새 창으로 연다.
 
@@ -78,6 +85,8 @@ remark-parse → remark-frontmatter → remark-gfm → remark-math → fixEscape
 - 미리보기 → 에디터 방향 스크롤 동기화
 - 마크다운 안의 raw HTML 렌더링
 - 공증(notarization)과 Intel 맥 빌드
+- PDF 미리보기에서 글자 선택(pdf.js 글자 레이어를 넣지 않음)
+- PDF 미리보기는 갱신할 때마다 모든 페이지를 다시 그린다. 긴 문서에서 느려지면 보이는 페이지만 그리도록 바꿔야 한다
 - 앱 안에서 라이트/다크 직접 고르기
 - base64 접기는 입력할 때마다 문서 전체를 다시 훑는다. 수 MB까지는 문제없지만 느려지면 변경 범위만 갱신하도록 바꿔야 한다.
 
@@ -91,4 +100,6 @@ remark-parse → remark-frontmatter → remark-gfm → remark-math → fixEscape
 - **base64 접기**는 처음에 "안 함"이었는데 구현했다.
 - **패키징 결과 폴더를 `dist/`에서 `release/`로 옮겼다.** 렌더러 번들 폴더와 겹쳤기 때문이다. dmg 릴리스도 추가했다.
 - **서명**은 "안 함"으로 계획했는데, electron-builder가 키체인의 Apple Development 인증서로 자동 서명했다. 공증은 안 돼 있다.
+- **PDF 내보내기 방식을 바꿨다.** 처음엔 앱 전체 테마를 잠깐 라이트로 바꿔서 인쇄했다. PDF 미리보기를 넣으면서 1초마다 화면이 깜빡이게 돼서, 라이트 모드로 고정한 숨은 인쇄 창에서 뽑도록 바꿨다.
+- **미리보기가 최종 결과물을 보여주도록 바꿨다.** 마크다운 렌더링만 보여주던 미리보기에 PDF와 노션 모드를 더했다.
 - **앱 용량**은 150MB로 예상했는데 305MB였다. 대부분이 Electron이고, 앱 코드(`app.asar`)는 Shiki 문법 데이터를 포함해 약 18MB다.
