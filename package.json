@@ -1,7 +1,7 @@
 {
   "name": "md-viewer",
   "productName": "MD Viewer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "마크다운 뷰어/에디터",
   "main": "main.js",
   "type": "commonjs",
